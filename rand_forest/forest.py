@@ -3,6 +3,7 @@ __author__ = 'mccar_000'
 from rand_forest.tree import *
 import matplotlib.pyplot as plt
 import math
+import random
 import pickle
 from numpy import arange, meshgrid, array, reshape
 from multiprocessing import Pool
@@ -19,15 +20,17 @@ def make_tree(tree_data):
 
 class Forest(object):
 
-    def __init__(self, depthlimit, weak_learner=None, bagging=False, filename=None, separator=',', class_idx=-1):
+    def __init__(self, depthlimit, weak_learner=None, bagging=False, bag_ratio=.4, filename=None,
+                 separator=',', class_idx=-1, default_tree_count=200):
         """
-
         :param filename: file of data with a row of class values
         :param separator: the separator used in the data
         :param class_idx: the index of the class vale in a row of data
         :param depthlimit: the depth allowed in a tree of the forest
         """
         self.bagging = bagging
+        self.bag_ratio = bag_ratio
+        self.default_tree_count = default_tree_count
         self.data = []
         self.minclass = float('NaN')
         self.maxclass = float('NaN')
@@ -53,7 +56,7 @@ class Forest(object):
         if first:
             self.numclasses = len(self.data[0][-1])
         assert self.minclass != self.maxclass and self.numclasses != 1, \
-            "Error: Only one class was found in the file, not suitable for classification"
+            "Error: Only one class was found in the file, not suitable for classfication"
 
     def prepare_data(self, filename, first_time=False):
         """
@@ -64,7 +67,6 @@ class Forest(object):
         :param filename: file to create a Forest from
         :param first_time: if this is the first data parsed, need to set min and max classes
         """
-
         samples = []
         lineno = 0
         with open(filename, 'r') as datafile:
@@ -101,13 +103,32 @@ class Forest(object):
             row.append(classvec)
         return samples
 
-    def add_tree(self, iterations, snapshot=False):
+    def set_train_delete(self, instances, classes, numclass):
+        """
+        Used when there is a lot of data and you want to train a forest
+        without saving it all
+        :param instances:
+        :param classes:
+        :param numclass:
+        :return:
+        """
+        for row_id in range(len(instances)):
+            classvec = [0 for _ in range(numclass)]
+            classvec[classes[row_id]] = 1
+            instances[row_id].append(classvec)
+        self.data = instances
+        self.add_tree(self.default_tree_count)
+        self.data = None
+
+    def add_tree(self, iterations=-1, snapshot=False):
         """
         Multi-core, fully utilizes underlying CPU to create the trees
 
         :param iterations:
         :return:
         """
+        if iterations == -1:
+            iterations = self.default_tree_count
         pool = Pool()  # creates multiple processes
         outputs = pool.map(make_tree, [(self.bag(), self.depthlimit, self.weak_learner) for _ in range(iterations)])
         pool.close()
@@ -117,9 +138,8 @@ class Forest(object):
             self.sum_squares(len(self.trees))  # get error after each snapshot, if this command is run multiple times
 
     def bag(self):
-        # TODO: change bag function to subsample data
         if self.bagging:
-            return self.data
+            return [self.data[random.randint(0, len(self.data))] for _ in int(self.bag_ratio*len(self.data))]
         else:
             return self.data
 
@@ -163,7 +183,7 @@ class Forest(object):
             for j in sorted(confusion):
                 print("%4d" % confusion[i][j], end="")
         print()
-        print("Number of classification errors:", error)
+        print("Number of classf errors:", error)
         print("Recognition rate: %5.2f%%" % (100 * float(correct) / len(data)))
         # for skewed classes the recognition rate isn't very important
         # use the F1 score instead
