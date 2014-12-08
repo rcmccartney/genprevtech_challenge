@@ -23,7 +23,7 @@ class Library():
         :param trees: int number of trees to use in a forest
         :return: None
         """
-        self.forests = []
+        self.forests = {}
         self.lib_days = lib_days
         self.region_count = regions
         self.country_count = countries
@@ -152,9 +152,9 @@ class Library():
                         bagging=self.bag, bag_ratio=self.bag_rat, default_tree_count=self.trees)
         print("In add_forest")
         forest.set_train_delete(self.train_data, self.classf, 2)
-        self.forests.append(forest)
+        self.forests[day] = forest
+        print("Finished forest on day", day)
 
-    #
     @staticmethod
     def last_atrocity(buffer, key, day, tr=0):
         """

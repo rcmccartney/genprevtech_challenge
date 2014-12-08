@@ -1,9 +1,9 @@
-__author__ = 'mccar_000'
+__author__ = 'Robert McCartney'
 
 from rand_forest.tree import *
 import math
-import random
 import pickle
+from copy import deepcopy
 from multiprocessing import Pool
 
 trainPlots = ["r<", "yv", "g^", "b>"]
@@ -13,7 +13,12 @@ coloropts = ('r', 'y', 'g', 'b', 'c', 'm', 'k', 'w')
 
 
 def make_tree(tree_data):
-    return Tree(tree_data[0], tree_data[1], tree_data[2])
+    """
+    Use this function to make a tree in parallel using all cores of the machine
+    :param tree_data: Tuple of (self.data_copy(), self.bag, self.bag_ratio, self.depthlimit, self.weak_learner)
+    :return: Tree made by this thread
+    """
+    return Tree(tree_data[0], tree_data[1], tree_data[2], tree_data[3], tree_data[4])
 
 
 class Forest(object):
@@ -21,10 +26,16 @@ class Forest(object):
     def __init__(self, depthlimit=3, weak_learner=None, bagging=False, bag_ratio=.4, filename=None,
                  separator=',', class_idx=-1, default_tree_count=200):
         """
+        Initialize all the variables required for this random forest
+        :param depthlimit: the depth allowed in a tree of the forest
+        :param weak_learner: how we split the data and traverse a tree, used as a Strategy design pattern
+        :param bagging: boolean to use bagging or not
+        :param bag_ratio: if using bagging, what percent of the data to use
         :param filename: file of data with a row of class values
         :param separator: the separator used in the data
         :param class_idx: the index of the class vale in a row of data
-        :param depthlimit: the depth allowed in a tree of the forest
+        :param default_tree_count: how many trees to train in this random forest
+        :return: None
         """
         self.bagging = bagging
         self.bag_ratio = bag_ratio
@@ -43,9 +54,15 @@ class Forest(object):
         self.weak_learner = weak_learner
 
     def prepare_and_add_data(self, filename, first=False):
-
-        # these variables will be initialized on the first parsing of data, or user request
-        # using first_time parameter
+        """
+        Used if this forest is initialized with a dataset
+        :param filename: file of data to create forest on
+        :param first: if this is the first time we have seen any data,
+        then we need to do extra work for min/max and number of classes
+        :return: None
+        """
+        # these variables will be initialized if they are unknown, or user requests
+        # using first_time=True parameter
         if math.isnan(self.minclass) or math.isnan(self.numclasses):
             first = True
         # add the processed data to the data stored by this tree
@@ -54,17 +71,16 @@ class Forest(object):
         if first:
             self.numclasses = len(self.data[0][-1])
         assert self.minclass != self.maxclass and self.numclasses != 1, \
-            "Error: Only one class was found in the file, not suitable for classfication"
+            "Error: Only one class was found in the file, not suitable for classification"
 
     def prepare_data(self, filename, first_time=False):
         """
         Appends the filename passed in to the data stored in this forest
-        TODO: Assumes the data can fit into memory, need to fix this
         Assume classes are labeled in order from min,min+1,min+2,...,max
-
         :param filename: file to create a Forest from
         :param first_time: if this is the first data parsed, need to set min and max classes
         """
+        #TODO: Assumes the data can fit into memory, need to fix this
         samples = []
         lineno = 0
         with open(filename, 'r') as datafile:
@@ -105,41 +121,51 @@ class Forest(object):
         """
         Used when there is a lot of data and you want to train a forest
         without saving it all
-        :param instances:
-        :param classes:
-        :param numclass:
-        :return:
+        :param instances: data to use, already processed into 2-D list of lists
+        :param classes: list of the class decision for each row in instances
+        :param numclass: number of classes in this dataset
+        :return: None
         """
+        newinstances = []
         for row_id in range(len(instances)):
+            # append a class decision vector such as [0, 1, 0, 0] (here is a 4 class problem) to row of data
             classvec = [0 for _ in range(numclass)]
+            # classvec will be appended as a sublist, not extended into the list itself
             classvec[classes[row_id]] = 1
-            instances[row_id].append(classvec)
-        self.data = instances
-        self.add_tree(self.default_tree_count)
+            # TODO another way to make sure we don't have empty data?
+            if len(instances[row_id]) > 0:
+                # pass in a copy of the Library, as it is re-used and we don't want to modify it with classvec
+                newinstances.append(instances[row_id][:])
+                newinstances[row_id].append(classvec)
+        self.data = newinstances
+        self.add_tree(iterations=self.default_tree_count)
         self.data = None
 
     def add_tree(self, iterations=-1, snapshot=False):
         """
         Multi-core, fully utilizes underlying CPU to create the trees
-
-        :param iterations:
-        :return:
+        of the forest and stores them into the forest's list of trees
+        :param iterations: number of trees to make, -1 means use default setting
+        :return: None
         """
         if iterations == -1:
             iterations = self.default_tree_count
         pool = Pool()  # creates multiple processes
-        outputs = pool.map(make_tree, [(self.bag(), self.depthlimit, self.weak_learner) for _ in range(iterations)])
+        outputs = pool.map(make_tree, [(self.data_copy(), self.bagging, self.bag_ratio, self.depthlimit, self.weak_learner)
+                                       for _ in range(iterations)])
         pool.close()
         pool.join()
         self.trees += outputs  # get the trees created and store them
         if snapshot:
             self.sum_squares(len(self.trees))  # get error after each snapshot, if this command is run multiple times
 
-    def bag(self):
-        if self.bagging:
-            return [self.data[random.randint(0, len(self.data)-1)] for _ in range(int(self.bag_ratio*len(self.data)))]
-        else:
-            return self.data
+    def data_copy(self):
+        """
+        Gives each thread its own copy of the data
+        :return: thread-local copy of the data to make a tree from
+        """
+        # TODO make sure this is necessary and not too slow
+        return deepcopy(self.data)
 
     def sum_squares(self, iterations):
         sqerr = 0.0
@@ -187,7 +213,7 @@ class Forest(object):
         # use the F1 score instead
         # skewed classes is when there is a zero and a one class and the one class is rare
         if self.numclasses == 2:
-            accuracy, precision, recall = Forest.analyze_confusion_matrix(confusion, len(data))
+            accuracy, precision, recall = Forest.analyze_confusion_matrix(confusion)
             print("Accuracy:", accuracy)
             print("Precision:", precision)
             print("Recall:", recall)
@@ -198,7 +224,13 @@ class Forest(object):
         return confusion
 
     @staticmethod
-    def analyze_confusion_matrix(confusionmat, totalsize):
+    def analyze_confusion_matrix(confusionmat):
+        """
+        Calculates the accuracy, precision, and recall of a given confusion matrix
+        :param confusionmat: a 2D matrix of class decisions for tested data
+        :return: results for accuracy, precision, and recall
+        """
+        totalsize = confusionmat[0][0] + confusionmat[0][1] + confusionmat[1][0] + confusionmat[1][1]
         accuracy = (confusionmat[0][0] + confusionmat[1][1]) / totalsize
         # prec = true pos / tru pos + false positives
         try:
@@ -214,8 +246,9 @@ class Forest(object):
 
     def get_forest_distr(self, instance):
         """
-        :param instance:
-        :return:
+        Averages the distribution of every tree in the forest to calc final distribution
+        :param instance: that you want to classify using this forest
+        :return: distribution of class decisions, representing a confidence percentage
         """
         # combine the distributions predicted by each tree
         # use a simple average to combine distributions
@@ -229,6 +262,11 @@ class Forest(object):
         return [prob/tot_trees for prob in distr]  # this gives avg prob dist for trees
 
     def learning_curve(self):
+        """
+        plots the learning curve found on this data
+        Dependency for matplotlib
+        :return: None
+        """
         import matplotlib.pyplot as plt
         plt.figure(0)
         # plt.pause(1)  # use these when interactive plotting
@@ -245,6 +283,17 @@ class Forest(object):
         plt.show()
 
     def region_plot(self, attr1=0, attr2=1, granularity=50, testfile=None):
+        """
+        This method graphs the decision boundaries.  Most useful for two featured data, as you
+        can see exactly where the decision changes from one class to another
+        Dependency for matplotlib and numpy
+        :param attr1: which attribute to use, default is index 0 of the data
+        :param attr2: which attribute to use for second attr, default is index 1 of the data
+        :param granularity: how close to test points for their decision as a class, finer granularity
+        gives more accurate coloring but takes longer
+        :param testfile: if you want to graph test data instead of training data
+        :return: None
+        """
         import matplotlib.pyplot as plt
         from numpy import arange, meshgrid, array, reshape
 
@@ -304,6 +353,11 @@ class Forest(object):
         plt.show()
 
     def print_to_file(self, label):
+        """
+        pickle this forest for later use
+        :param label: name of file to print to
+        :return: None
+        """
         label += '.pkl'
         print("Printing to " + label)
         output = open(label, 'wb')
@@ -311,6 +365,9 @@ class Forest(object):
         output.close()
 
     def __str__(self):
+        """
+        :return: string representation of this forest
+        """
         name = ""
         for a_tree in self.trees:
             name += str(a_tree)

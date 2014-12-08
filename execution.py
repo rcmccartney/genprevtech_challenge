@@ -3,8 +3,13 @@ __author__ = 'Rob McCartney'
 from rand_forest.EntropyFn import *
 from rand_forest.forest import *
 import sys
+from profilehooks17.profilehooks import *
+#Uses:
+#@profile
+#@coverage
 
 
+@timecall
 def train_dt(datafile, numtrees, depth_limit, learner):
 
     forest = Forest(depth_limit, filename=datafile, weak_learner=learner)
@@ -43,7 +48,7 @@ def find_best_settings(trainfile):
     return best_it, best_k, best_depth
 
 
-if __name__ == '__main__':
+def main():
     if len(sys.argv) < 7:
         print("Usage: python execution.py <trainfile> <trees> <depth> <splits> <minsplit> <maxsplit> [<testfile>]")
         sys.exit()
@@ -57,3 +62,6 @@ if __name__ == '__main__':
     if len(sys.argv) > 7:
         my_forest.test(sys.argv[7])
         my_forest.region_plot(testfile=sys.argv[7])
+
+if __name__ == '__main__':
+    main()

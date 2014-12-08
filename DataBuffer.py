@@ -272,7 +272,6 @@ class DataBuffer():
             num = -1
         return num
 
-
     @staticmethod
     def map_insert(input_map, key, value):
         """

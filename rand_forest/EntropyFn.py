@@ -21,7 +21,7 @@ class EntropyFn():
     # returns the nK split points needed as dictionary that will become the split point for this node
     def randomize(self, samples):
         attr_dict = {}  # stores the k split points for each attr
-        for attr_index in range(len(samples[0][0:-1])):
+        for attr_index in range(len(samples[0][:-1])):
             splits = []
             for j in range(self.k):
                 splits.append(random.uniform(self.minsplit, self.maxsplit))
@@ -30,12 +30,15 @@ class EntropyFn():
 
     @staticmethod
     def calc_distr(samples):
-        tot = [0 for _ in range(len(samples[0][-1]))]
-        tot_elem = len(samples)
-        for row in samples:
-            for i in range(len(tot)):  # tot is a zero vector for each class
-                tot[i] += row[-1][i]  # row[-1] is a boolean vector for class
-        return [float(count)/tot_elem for count in tot]  # this give prob dist for samples
+        if len(samples) > 0:
+            tot = [0 for _ in range(len(samples[0][-1]))]
+            tot_elem = len(samples)
+            for row in samples:
+                for i in range(len(tot)):  # tot is a zero vector for each class
+                    tot[i] += row[-1][i]  # row[-1] is a boolean vector for class
+            return [float(count)/tot_elem for count in tot]  # this give prob dist for samples
+        else:
+            return None
 
     @staticmethod
     def calc_entropy(samples):
@@ -86,8 +89,10 @@ class EntropyFn():
                     bestattr = attrIndex
                     finaldata_l = list(left_data)
                     finaldata_r = list(right_data)
+                    left_distr = self.calc_distr(left_data)
+                    right_disrt = self.calc_distr(right_data)
         assert not math.isnan(min_ent), "Oops this data doesn't seem right"
-        return Splitter(bestsplit, bestattr), finaldata_l, finaldata_r
+        return Splitter(bestsplit, bestattr), finaldata_l, finaldata_r, left_distr, right_disrt
 
 
 # TODO: turn this into decorated function instead
