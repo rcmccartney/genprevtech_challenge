@@ -7,6 +7,7 @@ from profilehooks17.profilehooks import *
 #Uses:
 #@profile
 #@coverage
+#@timecall
 
 
 @timecall

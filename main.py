@@ -2,6 +2,7 @@ __author__ = 'Rob McCartney'
 
 import sys
 import os
+import errno
 from DataBuffer import *
 
 MIN_DAY = 5440
@@ -17,6 +18,14 @@ def read_data(file_name):
     return data
 
 
+def make_sure_path_exists(path):
+    try:
+        os.makedirs(path)
+    except OSError as exception:
+        if exception.errno != errno.EEXIST:
+            raise
+
+
 def main():
     if len(sys.argv) != 6:
         print("This program is to be executed as follows: python main.py <input folder> "
@@ -29,6 +38,8 @@ def main():
     start_test = int(sys.argv[4])
     end_test = int(sys.argv[5])
     receiver = Receiver()
+
+    make_sure_path_exists(out_folder)
 
     if start_train < MIN_DAY:
         print("The value of <first training day> parameter must be " + str(MIN_DAY) + " or above.")
@@ -77,8 +88,8 @@ def main():
             print("Starting testing")
             results = receiver.predict_atrocities(cur_day)
             f = open(out_folder + os.sep + "res_" + str(cur_day) + ".txt", 'w')
-            for result in results:
-                f.write(result + "\n")
+            for i in range(len(results)):
+                f.write(str(i) + ": " + str(results[i]) + "\n")
             f.close()
 
 if __name__ == '__main__':

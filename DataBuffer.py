@@ -14,7 +14,7 @@ PERIODS = [3, 7, 14, 21, 28, 35, 42, 91, 182, 365, 730, 1460, 2920, 10000]
 EVENT_AGGR_TIME = 90  # the window to aggregate news events over, can change this
 START = 15000 - FIRST_DAY
 INTERVAL = 30  # how often we make a new forest
-LIB_DAYS = 180  # how many days of data we use for training a forest
+LIB_DAYS = 30  # how many days of data we use for training a forest
 BAG = False  # use bagging on the samples when making the tree?
 BAG_RAT = .4  # how much of the data is bagged to make a forest
 TREES = 3  # how many treees in a forest
@@ -22,8 +22,11 @@ DEPTH = 3  # depth of each tree in the forest
 K = 30  # random number of splits to use
 # Attr is the number of random attributes to use for the K split
 # -1 would mean test every attribute
-ATTR = 18
+ATTR = 5
 config_v = [220260, 233, 0.0009, 0.01]
+
+threshold = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 100]
+thre_ratio = [0.6, 0.75, 0.7, 0.65, 0.75, 0.8, 0.75, 0.7]
 ##############################################################################
 """
 The data used in this contest starts at the day 11284. There is 1 example, 1 provisional, and 1 system test case.
@@ -346,23 +349,29 @@ class Receiver():
         else:
             raise Exception("unknown data type " + str(source_type))
 
+    @staticmethod
+    def get_conf_id(val):
+        conf_id = 0
+        for thr in threshold:
+            if val > thr:
+                conf_id += 1
+        return conf_id  # int from 0 to 7
+
     def predict_atrocities(self, day):
         day -= FIRST_DAY
-        rec_dt = self.library.RECENT_DT
-        start_dt = START
-        intrvl_dt = INTERVAL
         result = [0.0 for _ in range(REGIONS)]
-        features = [0 for _ in range(len(self.library.predict_data[0]))]
-        for i in range(REGIONS):
-            for j in range(len(features)):
-                features[j] = self.library.predict_data[i][j]
+        for reg in range(REGIONS):
             weight = 0.0
-            for j in range(start_dt, rec_dt+1, intrvl_dt):
-                day_diff = day - j
-                tv = self.library.forests[day].get_forest_distr(features)
-                print(tv)
-                wt = max(1.0 - day_diff * config_v[2], config_v[3])
+            for index in range(len(self.library.forests)):
+                day_diff = day - self.library.forest_day[index]
+                pred = self.library.forests[index].get_forest_distr(self.library.predict_data[reg])
+                wt = max(1.0 - day_diff*config_v[2], config_v[3])
                 weight += wt
-                result[i] += tv*wt
-            result[i] = result[i]/weight
+                result[reg] += pred*wt
+            if weight != 0:
+                result[reg] /= weight
+            result[reg] *= thre_ratio[self.get_conf_id(result[reg])]
+            result[reg] = max(result[reg], 0.0)  # must be > 0
+            result[reg] = min(result[reg], 1.0)  # must be < 1
+            print("Region: ", reg, "prediction: ", result[reg])
         return result

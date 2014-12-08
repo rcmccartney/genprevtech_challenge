@@ -138,6 +138,7 @@ class Forest(object):
                 newinstances.append(instances[row_id][:])
                 newinstances[row_id].append(classvec)
         self.data = newinstances
+        print("data newinstances: ", newinstances[0])
         self.add_tree(iterations=self.default_tree_count)
         self.data = None
 
@@ -148,14 +149,17 @@ class Forest(object):
         :param iterations: number of trees to make, -1 means use default setting
         :return: None
         """
+        print("add tree: ", iterations)
         if iterations == -1:
             iterations = self.default_tree_count
-        pool = Pool()  # creates multiple processes
-        outputs = pool.map(make_tree, [(self.data_copy(), self.bagging, self.bag_ratio, self.depthlimit, self.weak_learner)
-                                       for _ in range(iterations)])
-        pool.close()
-        pool.join()
-        self.trees += outputs  # get the trees created and store them
+        #pool = Pool()  # creates multiple processes
+        #outputs = pool.map(make_tree, [(self.data_copy(), self.bagging, self.bag_ratio, self.depthlimit, self.weak_learner)
+        #                               for _ in range(iterations)])
+        #pool.close()
+        #pool.join()
+        for i in range(iterations):
+            outputs = make_tree((self.data_copy(), self.bagging, self.bag_ratio, self.depthlimit, self.weak_learner))
+            self.trees += outputs  # get the trees created and store them
         if snapshot:
             self.sum_squares(len(self.trees))  # get error after each snapshot, if this command is run multiple times
 

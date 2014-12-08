@@ -2,7 +2,11 @@ __author__ = 'Robert McCartney'
 
 from rand_forest.forest import Forest
 from rand_forest.AtrocityEntropyFn import *
-
+from profilehooks17.profilehooks import *
+#Uses:
+#@profile
+#@coverage
+#@timecall
 
 class Library():
 
@@ -23,7 +27,8 @@ class Library():
         :param trees: int number of trees to use in a forest
         :return: None
         """
-        self.forests = {}
+        self.forests = []
+        self.forest_day = []
         self.lib_days = lib_days
         self.region_count = regions
         self.country_count = countries
@@ -45,7 +50,6 @@ class Library():
         self.classf = [0 for _ in range(lib_days*regions)]
         # predict[region][feature] is used to make the atrocity prediction for the next 30 days
         self.predict_data = [[] for _ in range(regions)]
-        self.RECENT_DT = start_dt
 
     def create_data(self, buffer, day):
         """
@@ -122,8 +126,8 @@ class Library():
 
         # build dt only every INTERVAL days after 15,000 dayID
         if day >= self.start_dt and day % self.interval == 0:
-            self.RECENT_DT = day		
             self.add_forest(day)
+            self.forest_day.append(day)
 
     # each feature divided by world average
     def world_avg(self, soc, world):
@@ -142,6 +146,7 @@ class Library():
                 temp.append(1.0)
         return temp
 
+    @profile
     def add_forest(self, day):
         """
         Add a forest to the model
@@ -152,7 +157,7 @@ class Library():
                         bagging=self.bag, bag_ratio=self.bag_rat, default_tree_count=self.trees)
         print("In add_forest")
         forest.set_train_delete(self.train_data, self.classf, 2)
-        self.forests[day] = forest
+        self.forests.append(forest)
         print("Finished forest on day", day)
 
     @staticmethod
