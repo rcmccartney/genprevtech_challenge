@@ -1,11 +1,9 @@
 __author__ = 'mccar_000'
 
 from rand_forest.tree import *
-import matplotlib.pyplot as plt
 import math
 import random
 import pickle
-from numpy import arange, meshgrid, array, reshape
 from multiprocessing import Pool
 
 trainPlots = ["r<", "yv", "g^", "b>"]
@@ -20,7 +18,7 @@ def make_tree(tree_data):
 
 class Forest(object):
 
-    def __init__(self, depthlimit, weak_learner=None, bagging=False, bag_ratio=.4, filename=None,
+    def __init__(self, depthlimit=3, weak_learner=None, bagging=False, bag_ratio=.4, filename=None,
                  separator=',', class_idx=-1, default_tree_count=200):
         """
         :param filename: file of data with a row of class values
@@ -139,7 +137,7 @@ class Forest(object):
 
     def bag(self):
         if self.bagging:
-            return [self.data[random.randint(0, len(self.data))] for _ in int(self.bag_ratio*len(self.data))]
+            return [self.data[random.randint(0, len(self.data)-1)] for _ in range(int(self.bag_ratio*len(self.data)))]
         else:
             return self.data
 
@@ -231,6 +229,7 @@ class Forest(object):
         return [prob/tot_trees for prob in distr]  # this gives avg prob dist for trees
 
     def learning_curve(self):
+        import matplotlib.pyplot as plt
         plt.figure(0)
         # plt.pause(1)  # use these when interactive plotting
         #plt.ioff()  # interactive graphics off
@@ -245,7 +244,10 @@ class Forest(object):
         #plt.draw()  # update the plot
         plt.show()
 
-    def region_plot(self, attr1, attr2, granularity=50, testfile=None):
+    def region_plot(self, attr1=0, attr2=1, granularity=50, testfile=None):
+        import matplotlib.pyplot as plt
+        from numpy import arange, meshgrid, array, reshape
+
         minval_x = minval_y = maxval_x = maxval_y = float("NaN")
         if testfile is not None:
             data = self.prepare_data(testfile)

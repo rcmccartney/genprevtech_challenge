@@ -20,11 +20,17 @@ class AtrocityEntropyFn():
 
     # returns the nK split points needed as dictionary that will become the split point for this node
     def randomize(self, samples):
+        for i in range(len(samples)):
+            print(i, samples[i])
+            if (i > 1000):
+                break
+        exit(1)
         attr_dict = {}  # stores the k split points for each attr
         if self.attr == -1:
             indexes = [i for i in range(len(samples[0]))]
         else:
-            indexes = [random.randint(0, len(samples[0][0:-1])) for _ in self.attr]
+            indexes = [random.randint(0, len(samples[0][0:-1])-1) for _ in range(self.attr)]
+            print("indexes", indexes)
         for attr_index in indexes:
             splits = []
             for _ in range(self.k):

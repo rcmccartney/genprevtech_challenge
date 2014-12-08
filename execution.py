@@ -1,8 +1,9 @@
-__author__ = 'mccar_000'
+__author__ = 'Rob McCartney'
 
 from rand_forest.EntropyFn import *
 from rand_forest.forest import *
 import sys
+
 
 def train_dt(datafile, numtrees, depth_limit, learner):
 
@@ -12,7 +13,7 @@ def train_dt(datafile, numtrees, depth_limit, learner):
     forest.add_tree(numtrees, snapshot=True)
     forest.learning_curve()
     forest.test()
-    forest.region_plot(0, 1)
+    forest.region_plot()
     return forest
 
 
@@ -43,18 +44,16 @@ def find_best_settings(trainfile):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print("Usage: python forest.py <trainfile> [<testfile>]")
+    if len(sys.argv) < 7:
+        print("Usage: python execution.py <trainfile> <trees> <depth> <splits> <minsplit> <maxsplit> [<testfile>]")
         sys.exit()
 
-    depth = 3
-    it = 200
     #uncomment this to find best settings
     #best_it, best_k, best_depth = find_best_settings(sys.argv[1])
 
-    learner = EntropyFn()
-    my_forest = train_dt( sys.argv[1], it, depth, learner)
+    my_forest = train_dt(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]),
+                         EntropyFn(k=int(sys.argv[4]), minsplit=int(sys.argv[5]), maxsplit=int(sys.argv[6])))
 
-    if len(sys.argv) > 2:
-        my_forest.test(sys.argv[2])
-        my_forest.region_plot(0, 1, testfile=sys.argv[2])
+    if len(sys.argv) > 7:
+        my_forest.test(sys.argv[7])
+        my_forest.region_plot(testfile=sys.argv[7])

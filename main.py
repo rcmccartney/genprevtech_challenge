@@ -1,5 +1,7 @@
-__author__ = 'mccar_000'
-import sys 
+__author__ = 'Rob McCartney'
+
+import sys
+import os
 from DataBuffer import *
 
 MIN_DAY = 5440
@@ -28,21 +30,6 @@ def main():
     end_test = int(sys.argv[5])
     receiver = Receiver()
 
-    events_data = read_data(data_folder + "/events.txt")
-    regions_data = read_data(data_folder + "/regions.txt")
-
-    atroc_buf = []
-    for line in events_data:
-        line = line.split()
-        day = int(line.pop(0))
-        if day in atroc_buf:
-            atroc_buf[day].append(line)
-        else:
-            atroc_buf[day] = [line]
-
-    for i in range(len(atroc_buf)):
-        receiver.receive_data(2, start_train, regions_data)
-
     if start_train < MIN_DAY:
         print("The value of <first training day> parameter must be " + str(MIN_DAY) + " or above.")
         sys.exit(1)
@@ -69,15 +56,27 @@ def main():
         print("The value of <last testing day> parameter must be " + str(MAX_DAY) + " or below.")
         sys.exit(1)
 
-    for cur_day in range(start_train, end_test+1):
-        print("Day = ", cur_day)
-        data = read_data(data_folder + "/data_" + str(cur_day) + ".txt")
-        receiver.receive_data(1, cur_day, data)
-        receiver.receive_data(0, cur_day, atroc_buf[cur_day])
+    # read in the data for regions and atrocities
+    events_data = read_data(data_folder + os.sep + "events.txt")
+    regions_data = read_data(data_folder + os.sep + "regions.txt")
+    # pass regions on first training day
+    receiver.receive_data(2, start_train, regions_data)
+    # set up atrocity data as a list for every possible day
+    atroc_buf = [[] for _ in range(MAX_DAY)]
+    for line in events_data:
+        line = line.split()
+        day = int(line.pop(0))
+        atroc_buf[day].append(line)
 
+    for cur_day in range(start_train, end_test+1):
+        print("Reading day = ", cur_day)
+        data = read_data(data_folder + os.sep + "data_" + str(cur_day) + ".txt")
+        receiver.receive_data(1, cur_day, data)
+        receiver.receive_data(0, cur_day, atroc_buf[cur_day])  # atroc could be empty list
         if cur_day >= start_test:
+            print("Starting testing")
             results = receiver.predict_atrocities(cur_day)
-            f = open(out_folder + "/res_" + str(cur_day) + ".txt", 'w')
+            f = open(out_folder + os.sep + "res_" + str(cur_day) + ".txt", 'w')
             for result in results:
                 f.write(result + "\n")
             f.close()
