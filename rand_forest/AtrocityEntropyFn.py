@@ -135,7 +135,6 @@ class AtrocityEntropyFn():
         return totsum
 
     def calc_split(self, samples):
-        print("Calc split")
         min_ent = float('NaN')
         attr_dict = self.randomize(samples)
         bestsplit = 0
@@ -183,7 +182,6 @@ class AtrocityEntropyFn():
         return Splitter(bestsplit, bestattr), finaldata_l, finaldata_r, finaldist_l, finaldist_r
 
 
-# TODO: turn this into decorated function instead
 class Splitter():
     """
     This is a class that is parameterized by the best (lowest entropy) split

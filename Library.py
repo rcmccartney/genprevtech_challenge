@@ -8,6 +8,7 @@ from profilehooks17.profilehooks import *
 #@coverage
 #@timecall
 
+# how many features are in 1 line of data
 VECTOR_LENGTH = 70
 
 

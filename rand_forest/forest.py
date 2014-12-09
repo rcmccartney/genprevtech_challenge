@@ -135,7 +135,7 @@ class Forest(object):
             classvec = [0 for _ in range(numclass)]
             # classvec will be appended as a sublist, not extended into the list itself
             classvec[classes[row_id]] = 1
-            # TODO another way to make sure we don't have empty data?
+            # make sure we don't have empty data
             if len(instances[row_id]) > 0:
                 # pass in a copy of the Library, as it is re-used and we don't want to modify it with classvec
                 newinstances.append(instances[row_id][:])
@@ -178,8 +178,9 @@ class Forest(object):
         Gives each thread its own copy of the data
         :return: thread-local copy of the data to make a tree from
         """
-        # TODO make sure this is necessary and not too slow
-        return deepcopy(self.data)
+        # too slow
+        #return deepcopy(self.data)
+        return self.data
 
     def sum_squares(self, iterations):
         sqerr = 0.0

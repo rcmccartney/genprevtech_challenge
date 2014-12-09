@@ -11,16 +11,16 @@ FEATURES = 33
  # sliding windows to aggregate atrocity counts over
 PERIODS = [3, 7, 14, 21, 28, 35, 42, 91, 182, 365, 730, 1460, 2920, 10000]
 EVENT_AGGR_TIME = 90  # the window to aggregate news events over, can change this
-INTERVAL = 30  # how often we make a new forest
-LIB_DAYS = 30  # how many days of data we use for training a forest
-BAG = False  # use bagging on the samples when making the tree?
-BAG_RAT = .4  # how much of the data is bagged to make a forest
-TREES = 3  # how many treees in a forest
-DEPTH = 3  # depth of each tree in the forest
-K = 30  # random number of splits to use
+INTERVAL = 10  # how often we make a new forest
+LIB_DAYS = 60  # how many days of data we use for training a forest
+BAG = True  # use bagging on the samples when making the tree?
+BAG_RAT = .3  # how much of the data is bagged to make a forest
+TREES = 40  # how many treees in a forest
+DEPTH = 2  # depth of each tree in the forest
+K = 20  # random number of splits to use
 # Attr is the number of random attributes to use for the K split
 # -1 would mean test every attribute
-ATTR = 5
+ATTR = 10
 START_DT = LIB_DAYS + 30  # trailing 30 delay plus enough time to fill up library
 #config_v = [220260, 233, 0.0009, 0.01]
 #threshold = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 100]
@@ -327,6 +327,7 @@ class Receiver():
         self.start = start
         self.end = end
         self.score = 0
+        self.start_dt = max(START_DT, 15000 - self.start)
 
     def receive_data(self, source_type, day, data):
         """
@@ -344,7 +345,7 @@ class Receiver():
         elif source_type == 1:
             self.buf.read_news_data(day - self.start, data)
         elif source_type == 2:  # this source will be called before the other two
-            self.library = Library(START_DT, REGIONS, COUNTRIES, PERIODS, LIB_DAYS, INTERVAL, DEPTH, K,
+            self.library = Library(self.start_dt, REGIONS, COUNTRIES, PERIODS, LIB_DAYS, INTERVAL, DEPTH, K,
                                    ATTR, BAG, BAG_RAT, TREES)
             self.buf = DataBuffer(self.library, self.start, self.end)
             self.buf.read_geography(data)
