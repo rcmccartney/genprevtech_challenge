@@ -126,6 +126,9 @@ class Forest(object):
         :param numclass: number of classes in this dataset
         :return: None
         """
+        print("set_train_delete")
+        print("instances_y: ", len(instances), "instances_x", len(instances[0]))
+        self.numclasses = numclass
         newinstances = []
         for row_id in range(len(instances)):
             # append a class decision vector such as [0, 1, 0, 0] (here is a 4 class problem) to row of data
@@ -138,7 +141,7 @@ class Forest(object):
                 newinstances.append(instances[row_id][:])
                 newinstances[row_id].append(classvec)
         self.data = newinstances
-        print("data newinstances: ", newinstances[0])
+        print("newinstances: ", newinstances[0][-1])
         self.add_tree(iterations=self.default_tree_count)
         self.data = None
 
@@ -152,14 +155,21 @@ class Forest(object):
         print("add tree: ", iterations)
         if iterations == -1:
             iterations = self.default_tree_count
-        #pool = Pool()  # creates multiple processes
-        #outputs = pool.map(make_tree, [(self.data_copy(), self.bagging, self.bag_ratio, self.depthlimit, self.weak_learner)
-        #                               for _ in range(iterations)])
-        #pool.close()
-        #pool.join()
-        for i in range(iterations):
-            outputs = make_tree((self.data_copy(), self.bagging, self.bag_ratio, self.depthlimit, self.weak_learner))
-            self.trees += outputs  # get the trees created and store them
+        #########################
+        # MULTI THREADED
+        ########################
+        pool = Pool()  # creates multiple processes
+        outputs = pool.map(make_tree, [(self.data_copy(), self.bagging, self.bag_ratio, self.depthlimit, self.weak_learner)
+                                       for _ in range(iterations)])
+        pool.close()
+        pool.join()
+        self.trees.extend(outputs)  # get the trees created and store them
+        #########################
+        # SINGLE THREADED
+        ########################
+        #for i in range(iterations):
+        #    tree = Tree(self.data, self.bagging, self.bag_ratio, self.depthlimit, self.weak_learner)
+        #    self.trees.append(tree)  # get the trees created and store them
         if snapshot:
             self.sum_squares(len(self.trees))  # get error after each snapshot, if this command is run multiple times
 

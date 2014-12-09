@@ -8,16 +8,19 @@ from profilehooks17.profilehooks import *
 #@coverage
 #@timecall
 
+VECTOR_LENGTH = 70
+
+
 class Library():
 
-    def __init__(self, regions, countries, periods, lib_days, start_dt, interval, depth, k, attr, bag, bag_rat, trees):
+    def __init__(self, start_dt, regions, countries, periods, lib_days, interval, depth, k, attr, bag, bag_rat, trees):
         """
         The Library class is responsible for creating the data that actual goes into the classifier
+        :param start_dt: int first day of training a forest
         :param regions: int number of regions
         :param countries: int number of countries
         :param periods: the number of periods to aggregate data over
         :param lib_days: int the number of days of data to keep in the library
-        :param start_dt: int first day to build a forest
         :param interval: int days between forests
         :param depth: int maximum depth each tree in a forest can be
         :param k: int number of split points to use
@@ -45,11 +48,11 @@ class Library():
         self.position = 0
         # train on data from 30 days back and make predictions from data today to be learning 30 days future
         # this is the dataset, one row for every region/day in current sliding window: train_data[region/day][feature]
-        self.train_data = [[] for _ in range(lib_days*regions)]
+        self.train_data = [[0 for _ in range(VECTOR_LENGTH)] for _ in range(lib_days*regions)]
         # classf[region][day] is 0/1, the class of the train data
         self.classf = [0 for _ in range(lib_days*regions)]
         # predict[region][feature] is used to make the atrocity prediction for the next 30 days
-        self.predict_data = [[] for _ in range(regions)]
+        self.predict_data = [[0 for _ in range(VECTOR_LENGTH)] for _ in range(regions)]
 
     def create_data(self, buffer, day):
         """
@@ -66,8 +69,6 @@ class Library():
         # clear buffers for the next <region_count> of rows before adding the data in
         for i in range(self.region_count):
             self.classf[self.position+i] = 0
-            self.train_data[self.position+i] = []
-            self.predict_data[i] = []
 
         for reg in range(self.region_count):
             # country to which this region belongs, need to index at 0 since it inserted into map as a list
@@ -91,34 +92,52 @@ class Library():
             atroc_ratio[1] = reg_to_cnt_ratio[1]*0.7 + 0.3/len(buffer.country_to_regions[country_id])
 
             #trailing30 contains counts of atrocities for every period, 14 in all
-            self.train_data[self.position] = buffer.trailing30_region_atroc[reg]
+            index = 0
+            for j in range(len(buffer.trailing30_region_atroc[reg])):
+                self.train_data[self.position][index+j] = buffer.trailing30_region_atroc[reg][j]
+            index += len(buffer.trailing30_region_atroc[reg])
             # each region gets a share of the countries total atrocities by period as a feature, 14 in all
-            self.train_data[self.position]. \
-                extend([atroc_ratio[0]*x for x in buffer.trailing30_country_atroc[country_id]])
+            tmp = [atroc_ratio[0]*x for x in buffer.trailing30_country_atroc[country_id]]
+            for j in range(len(tmp)):
+                self.train_data[self.position][index+j] = tmp[j]
+            index += len(tmp)
             # add in the 9 additional features
-            self.train_data[self.position].extend([reg, country_id])
-            self.train_data[self.position].extend([len(buffer.country_to_regions[country_id])])
-            self.train_data[self.position].extend([reg_to_cnt_ratio[0]])
-            self.train_data[self.position].extend([buffer.trailing30_country_atroc[self.world_index][5]])  # [5]=35 days
-            self.train_data[self.position].extend([self.last_atrocity(buffer.reg_atroc_dates, reg, day, tr=30)])
-            self.train_data[self.position].extend([self.last_atrocity(buffer.cnt_atroc_dates, country_id, day, tr=30)])
-            self.train_data[self.position].extend(buffer.region_geo[reg])  # two features
-            # now add all the news features, which are aggregated over EVENT_AGGR_TIME
-            self.train_data[self.position].extend(self.world_avg(buffer.trailing30_region_news[reg],
-                                                                 buffer.trailing30_country_news[self.world_index]))
+            self.train_data[self.position][index] = reg
+            self.train_data[self.position][index+1] = country_id
+            self.train_data[self.position][index+2] = len(buffer.country_to_regions[country_id])
+            self.train_data[self.position][index+3] = reg_to_cnt_ratio[0]
+            self.train_data[self.position][index+4] = buffer.trailing30_country_atroc[self.world_index][5]  # [5]=35days
+            self.train_data[self.position][index+5] = self.last_atrocity(buffer.reg_atroc_dates, reg, day, tr=30)
+            self.train_data[self.position][index+6] = self.last_atrocity(buffer.cnt_atroc_dates, country_id, day, tr=30)
+            self.train_data[self.position][index+7] = buffer.region_geo[reg][0]
+            self.train_data[self.position][index+8] = buffer.region_geo[reg][1]
+            # now add all the news features, which are aggregated over EVENT_AGGR_TIME - 33 in all
+            index += 9
+            tmp = self.world_avg(buffer.trailing30_region_news[reg], buffer.trailing30_country_news[self.world_index])
+            for j in range(len(tmp)):
+                self.train_data[self.position][index+j] = tmp[j]
             #Create the current data same way as above
-            self.predict_data[reg] = buffer.curr_region_atroc[reg]
-            self.predict_data[reg].extend([atroc_ratio[1]*x for x in buffer.curr_country_atroc[country_id]])
-            self.predict_data[reg].extend([reg, country_id])
-            self.predict_data[reg].extend([len(buffer.country_to_regions[country_id])])
-            self.predict_data[reg].extend([reg_to_cnt_ratio[1]])
-            self.predict_data[reg].extend([buffer.curr_country_atroc[self.world_index][5]])  # [5] is 35 days trailing
-            self.predict_data[reg].extend([self.last_atrocity(buffer.reg_atroc_dates, reg, day)])
-            self.predict_data[reg].extend([self.last_atrocity(buffer.cnt_atroc_dates, country_id, day)])
-            self.predict_data[reg].extend(buffer.region_geo[reg])
-            self.predict_data[reg].extend(self.world_avg(buffer.recent_region_news[reg],
-                                                         buffer.recent_country_news[self.world_index]))
-
+            index = 0
+            for j in range(len(buffer.curr_region_atroc[reg])):
+                self.predict_data[reg][index+j] = buffer.curr_region_atroc[reg][j]
+            index += len(buffer.curr_region_atroc[reg])
+            tmp = [atroc_ratio[1]*x for x in buffer.curr_country_atroc[country_id]]
+            for j in range(len(tmp)):
+                self.predict_data[reg][index+j] = tmp[j]
+            index += len(tmp)
+            self.predict_data[reg][index] = reg
+            self.predict_data[reg][index+1] = country_id
+            self.predict_data[reg][index+2] = len(buffer.country_to_regions[country_id])
+            self.predict_data[reg][index+3] = reg_to_cnt_ratio[1]
+            self.predict_data[reg][index+4] = buffer.curr_country_atroc[self.world_index][5]  # [5]=35days trail
+            self.predict_data[reg][index+5] = self.last_atrocity(buffer.reg_atroc_dates, reg, day)
+            self.predict_data[reg][index+6] = self.last_atrocity(buffer.cnt_atroc_dates, country_id, day)
+            self.predict_data[reg][index+7] = buffer.region_geo[reg][0]
+            self.predict_data[reg][index+8] = buffer.region_geo[reg][1]
+            index += 9
+            tmp = self.world_avg(buffer.recent_region_news[reg], buffer.recent_country_news[self.world_index])
+            for j in range(len(tmp)):
+                self.predict_data[reg][index+j] = tmp[j]
             # wrap the buffer around to save space, only keep LIB_DAYS of data
             self.position += 1
             if self.position >= self.lib_days*self.region_count:
@@ -141,7 +160,7 @@ class Library():
         temp = []
         for index in range(len(soc)):
             if world[index] != 0:
-                temp.append(soc[index] / (world[index]/self.region_count))
+                temp.append(self.region_count * soc[index] / world[index])
             else:
                 temp.append(1.0)
         return temp

@@ -1,8 +1,7 @@
 from Library import Library
+import math
 
 ###################Don't change these, set by the data########################
-FIRST_DAY = 11284  # start of data, normalize this to zero for entire program
-LAST_DAY = 17644
 REGIONS = 3671  # number of regions in dataset
 COUNTRIES = 254  # number of countries in dataset
 WORLD_INDEX = COUNTRIES
@@ -12,7 +11,6 @@ FEATURES = 33
  # sliding windows to aggregate atrocity counts over
 PERIODS = [3, 7, 14, 21, 28, 35, 42, 91, 182, 365, 730, 1460, 2920, 10000]
 EVENT_AGGR_TIME = 90  # the window to aggregate news events over, can change this
-START = 15000 - FIRST_DAY
 INTERVAL = 30  # how often we make a new forest
 LIB_DAYS = 30  # how many days of data we use for training a forest
 BAG = False  # use bagging on the samples when making the tree?
@@ -23,10 +21,10 @@ K = 30  # random number of splits to use
 # Attr is the number of random attributes to use for the K split
 # -1 would mean test every attribute
 ATTR = 5
-config_v = [220260, 233, 0.0009, 0.01]
-
-threshold = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 100]
-thre_ratio = [0.6, 0.75, 0.7, 0.65, 0.75, 0.8, 0.75, 0.7]
+START_DT = LIB_DAYS + 30  # trailing 30 delay plus enough time to fill up library
+#config_v = [220260, 233, 0.0009, 0.01]
+#threshold = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 100]
+#thre_ratio = [0.6, 0.75, 0.7, 0.65, 0.75, 0.8, 0.75, 0.7]
 ##############################################################################
 """
 The data used in this contest starts at the day 11284. There is 1 example, 1 provisional, and 1 system test case.
@@ -41,22 +39,22 @@ System		11284-16397 (76,824,701 lines)			16398-17644 (92,738,537 lines)
 
 
 class DataBuffer():
-    def __init__(self, library):
+    def __init__(self, library, start, end):
         """
         Initialize the buffer that reads the data files and stores aggregate counts of various metrics
         :param library: creates the dataset to be used in training/testing the forest
         :return: None
         """
         # different time periods to make features from
+        size = end - start + 1
         self.forest_library = library
-        self.buffsize = EVENT_AGGR_TIME + 31  # store enough to look back that far with 30 days trailing
+        # store enough to look back that far with 30 days trailing
+        self.buffsize = min(EVENT_AGGR_TIME + 31, size)
         self.cnt_atroc_dates = {}  # stores days of atrocities for this country
         self.reg_atroc_dates = {}  # stores days of atrocities for this region
         # stores a count of atrocities for all [countries][days] and [regions][days]
-        self.all_cnt_atro = [[0 for _ in range(LAST_DAY - FIRST_DAY + 31)]
-                             for _ in range(COUNTRIES)]
-        self.all_region_atro = [[0 for _ in range(LAST_DAY - FIRST_DAY + 31)]
-                                for _ in range(REGIONS)]
+        self.all_cnt_atro = [[0 for _ in range(size)] for _ in range(COUNTRIES)]
+        self.all_region_atro = [[0 for _ in range(size)] for _ in range(REGIONS)]
         #this counts the last month of atrocities in region, gives us the class decision
         self.region_atro_decision = [0 for _ in range(REGIONS)]
         # map for both the current time and 30 days prior for the counts of atrocities during different windows
@@ -120,7 +118,8 @@ class DataBuffer():
                 self.rolling_add(self.trailing30_country_atroc[WORLD_INDEX], pid, self.all_cnt_atro[country],
                                  day, period, trailing=30)
         #now we can create labeled data thanks to known atrocities, so call the create function
-        self.forest_library.create_data(self, day)
+        if day >= 30:  # need at least 30 days for trailing data to be started
+            self.forest_library.create_data(self, day)
 
     @staticmethod
     def rolling_add(array, pid, buffer, day, period, trailing=0, wrap_amount=0):
@@ -217,7 +216,7 @@ class DataBuffer():
         features[0] = True  # serves as a count of all events
         features[1] = line[15] == 't'  # event importance
         features[2] = not(features[1])
-        features[3] = (p1 > 0 or p2 > 0) and not(p1 > 0 and p2 > 0)
+        features[3] = (p1 > 0 or p2 > 0) and not (p1 > 0 and p2 > 0)
         features[4] = p1 > 0 and p2 > 0
         features[5] = DataBuffer.not_same_geography(a_country, p1_country, p2_country)
         features[6] = not(features[5])
@@ -322,9 +321,12 @@ class DataBuffer():
 
 
 class Receiver():
-    def __init__(self):
+    def __init__(self, start, end):
         self.buf = None
         self.library = None
+        self.start = start
+        self.end = end
+        self.score = 0
 
     def receive_data(self, source_type, day, data):
         """
@@ -338,40 +340,63 @@ class Receiver():
         :return: None
         """
         if source_type == 0:  # this is atrocity data
-            self.buf.read_atrocities(day - FIRST_DAY, data)
+            self.buf.read_atrocities(day - self.start, data)
         elif source_type == 1:
-            self.buf.read_news_data(day - FIRST_DAY, data)
+            self.buf.read_news_data(day - self.start, data)
         elif source_type == 2:  # this source will be called before the other two
-            self.library = Library(REGIONS, COUNTRIES, PERIODS, LIB_DAYS, START, INTERVAL, DEPTH, K,
+            self.library = Library(START_DT, REGIONS, COUNTRIES, PERIODS, LIB_DAYS, INTERVAL, DEPTH, K,
                                    ATTR, BAG, BAG_RAT, TREES)
-            self.buf = DataBuffer(self.library)
+            self.buf = DataBuffer(self.library, self.start, self.end)
             self.buf.read_geography(data)
         else:
             raise Exception("unknown data type " + str(source_type))
 
-    @staticmethod
+    """@staticmethod
     def get_conf_id(val):
         conf_id = 0
         for thr in threshold:
             if val > thr:
                 conf_id += 1
         return conf_id  # int from 0 to 7
+    """
 
-    def predict_atrocities(self, day):
-        day -= FIRST_DAY
+    def calc_score(self, result, day, all_atroc):
+        for reg in range(REGIONS):
+            last = self.library.last_atrocity(self.buf.reg_atroc_dates, reg, day)
+            if last == 10000:  # no atrocity has ever occurred
+                wgh = 1
+            else:
+                wgh = math.tanh((day - last + 10) / 180)
+            atroc_occurs = False
+            for fDay in range(day+1, day+31):
+                if (reg, fDay) in all_atroc:
+                    atroc_occurs = True
+                    break
+            if atroc_occurs:
+                self.score += wgh*(result[reg] - (result[reg]*result[reg]/2))
+            else:
+                self.score -= wgh * result[reg] * result[reg] / 2
+
+    def predict_atrocities(self, day, all_atroc):
+        day -= self.start
         result = [0.0 for _ in range(REGIONS)]
         for reg in range(REGIONS):
-            weight = 0.0
+            tot = [0, 0]
             for index in range(len(self.library.forests)):
-                day_diff = day - self.library.forest_day[index]
+                #day_diff = day - self.library.forest_day[index]
+                #pred is a distribution
                 pred = self.library.forests[index].get_forest_distr(self.library.predict_data[reg])
-                wt = max(1.0 - day_diff*config_v[2], config_v[3])
-                weight += wt
-                result[reg] += pred*wt
-            if weight != 0:
-                result[reg] /= weight
-            result[reg] *= thre_ratio[self.get_conf_id(result[reg])]
+                tot[0] += pred[0]
+                tot[1] += pred[1]
+                #wt = max(1.0 - day_diff*config_v[2], config_v[3])
+                #weight += wt
+                #result[reg] += pred*wt
+            #if weight != 0:
+            #    result[reg] /= weight
+            #result[reg] *= thre_ratio[self.get_conf_id(result[reg])]
+            result[reg] = tot[1] / (tot[0] + tot[1])
             result[reg] = max(result[reg], 0.0)  # must be > 0
             result[reg] = min(result[reg], 1.0)  # must be < 1
             print("Region: ", reg, "prediction: ", result[reg])
+        self.calc_score(result, day, all_atroc)
         return result

@@ -135,6 +135,7 @@ class AtrocityEntropyFn():
         return totsum
 
     def calc_split(self, samples):
+        print("Calc split")
         min_ent = float('NaN')
         attr_dict = self.randomize(samples)
         bestsplit = 0
@@ -169,9 +170,15 @@ class AtrocityEntropyFn():
                     finaldata_l = left_data[:]
                     finaldata_r = right_data[:]
                     tot = l_count[0] + l_count[1]
-                    finaldist_l = [x/tot for x in l_count]
+                    if tot != 0:
+                        finaldist_l = [x/tot for x in l_count]
+                    else:
+                        finaldist_l = None
                     tot = r_count[0] + r_count[1]
-                    finaldist_r = [x/tot for x in r_count]
+                    if tot != 0:
+                        finaldist_r = [x/tot for x in r_count]
+                    else:
+                        finaldist_r = None
         assert not math.isnan(min_ent), "Oops this data doesn't seem right"
         return Splitter(bestsplit, bestattr), finaldata_l, finaldata_r, finaldist_l, finaldist_r
 
