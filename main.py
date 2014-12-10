@@ -47,7 +47,7 @@ def main():
     start_train = int(sys.argv[3])
     start_test = int(sys.argv[4])
     end_test = int(sys.argv[5])
-    receiver = Receiver(start_train, end_test)
+    receiver = Receiver(start_train, start_test, end_test)
 
     make_sure_path_exists(out_folder)
 

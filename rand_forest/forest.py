@@ -2,9 +2,9 @@ __author__ = 'Robert McCartney'
 
 from rand_forest.tree import *
 import math
+import random
 import pickle
-from copy import deepcopy
-from multiprocessing import Pool
+from multiprocessing.pool import Pool
 
 trainPlots = ["r<", "yv", "g^", "b>"]
 testPlots = ["r8", "ys", "gp", "bh"]
@@ -18,7 +18,7 @@ def make_tree(tree_data):
     :param tree_data: Tuple of (self.data_copy(), self.bag, self.bag_ratio, self.depthlimit, self.weak_learner)
     :return: Tree made by this thread
     """
-    return Tree(tree_data[0], tree_data[1], tree_data[2], tree_data[3], tree_data[4])
+    return Tree(tree_data[0], tree_data[1], tree_data[2])
 
 
 class Forest(object):
@@ -158,8 +158,8 @@ class Forest(object):
         #########################
         # MULTI THREADED
         ########################
-        pool = Pool()  # creates multiple processes
-        outputs = pool.map(make_tree, [(self.data_copy(), self.bagging, self.bag_ratio, self.depthlimit, self.weak_learner)
+        pool = Pool()  # creates multiple processes equal to cores in machine
+        outputs = pool.map(make_tree, [(self.data_copy(), self.depthlimit, self.weak_learner)
                                        for _ in range(iterations)])
         pool.close()
         pool.join()
@@ -180,7 +180,10 @@ class Forest(object):
         """
         # too slow
         #return deepcopy(self.data)
-        return self.data
+        if self.bagging:
+            return [self.data[random.randint(0, len(self.data)-1)] for _ in range(int(self.bag_ratio*len(self.data)))]
+        else:
+            return self.data
 
     def sum_squares(self, iterations):
         sqerr = 0.0

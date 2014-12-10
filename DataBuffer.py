@@ -15,9 +15,9 @@ INTERVAL = 10  # how often we make a new forest
 LIB_DAYS = 60  # how many days of data we use for training a forest
 BAG = True  # use bagging on the samples when making the tree?
 BAG_RAT = .3  # how much of the data is bagged to make a forest
-TREES = 40  # how many treees in a forest
-DEPTH = 2  # depth of each tree in the forest
-K = 20  # random number of splits to use
+TREES = 4  # how many treees in a forest
+DEPTH = 3  # depth of each tree in the forest
+K = 10  # random number of splits to use
 # Attr is the number of random attributes to use for the K split
 # -1 would mean test every attribute
 ATTR = 10
@@ -321,13 +321,15 @@ class DataBuffer():
 
 
 class Receiver():
-    def __init__(self, start, end):
+    def __init__(self, start, test_start, end):
         self.buf = None
         self.library = None
         self.start = start
+        self.test_start = test_start
         self.end = end
         self.score = 0
-        self.start_dt = max(START_DT, 15000 - self.start)
+        # this makes sure there are at least two trees before beginning and START_DT of data
+        self.start_dt = max(START_DT, self.test_start - self.start - (2*INTERVAL))
 
     def receive_data(self, source_type, day, data):
         """
@@ -381,23 +383,25 @@ class Receiver():
     def predict_atrocities(self, day, all_atroc):
         day -= self.start
         result = [0.0 for _ in range(REGIONS)]
-        for reg in range(REGIONS):
-            tot = [0, 0]
-            for index in range(len(self.library.forests)):
-                #day_diff = day - self.library.forest_day[index]
-                #pred is a distribution
-                pred = self.library.forests[index].get_forest_distr(self.library.predict_data[reg])
-                tot[0] += pred[0]
-                tot[1] += pred[1]
-                #wt = max(1.0 - day_diff*config_v[2], config_v[3])
-                #weight += wt
-                #result[reg] += pred*wt
-            #if weight != 0:
-            #    result[reg] /= weight
-            #result[reg] *= thre_ratio[self.get_conf_id(result[reg])]
-            result[reg] = tot[1] / (tot[0] + tot[1])
-            result[reg] = max(result[reg], 0.0)  # must be > 0
-            result[reg] = min(result[reg], 1.0)  # must be < 1
-            print("Region: ", reg, "prediction: ", result[reg])
-        self.calc_score(result, day, all_atroc)
+        # if no forests built then the results are all 0
+        if len(self.library.forests) > 0:
+            for reg in range(REGIONS):
+                tot = [0, 0]
+                #weight = 0.0
+                for index in range(len(self.library.forests)):
+                #    day_diff = day - self.library.forest_day[index]
+                    #pred is a distribution
+                    pred = self.library.forests[index].get_forest_distr(self.library.predict_data[reg])
+                #    wt = max(1.0 - day_diff*config_v[2], config_v[3])
+                #    weight += wt
+                    tot[0] += pred[0]
+                    tot[1] += pred[1]
+                #if weight != 0:
+                #    tot[1] /= weight
+                #tot[1] *= thre_ratio[self.get_conf_id(tot[1])]
+                result[reg] = tot[1] / len(self.library.forests)
+                result[reg] = max(result[reg], 0.0)  # must be > 0
+                result[reg] = min(result[reg], 1.0)  # must be < 1
+                print("Region: ", reg, "prediction: ", result[reg])
+            self.calc_score(result, day, all_atroc)
         return result
