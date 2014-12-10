@@ -1,7 +1,5 @@
 __author__ = 'Robert McCartney'
 
-import random
-
 
 class Node(object):
     """A node of a tree inside a random forest"""
@@ -41,20 +39,16 @@ class Node(object):
 class Tree(object):
     """A tree of a random forest"""
 
-    def __init__(self, samples, bagging, bag_rat, depth_limit, weak_learner):
+    def __init__(self, samples, depth_limit, weak_learner):
         """
         Initialize the tree, and turn on bagging if required
         :param samples: data used by this tree
-        :param bagging: boolean to use bagging or not
-        :param bag_rat: percent of data to use if bagging
         :param depth_limit: limit of the size of each tree
         :param weak_learner: weak learner to use for splitting data
         :return: None
         """
         print("Tree constructor")
         # data is not stored at the tree, so after the constructor finishes it is tossed
-        if bagging:
-            samples = [samples[random.randint(0, len(samples)-1)] for _ in range(int(bag_rat*len(samples)))]
         self.depth_limit = depth_limit
         self.weak_learner = weak_learner
         self.root = self.add_node(samples, 0, None, self.weak_learner.calc_distr(samples))
