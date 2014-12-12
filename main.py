@@ -106,6 +106,8 @@ def main():
 
     print("#############################")
     print("Final score", receiver.score)
+    print("Confusion matrix with threshold", receiver.threshold)
+    receiver.print_confusion()
     print("#############################")
 
 

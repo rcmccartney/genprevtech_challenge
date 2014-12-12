@@ -22,6 +22,8 @@ K = 10  # random number of splits to use
 # -1 would mean test every attribute
 ATTR = 10
 START_DT = LIB_DAYS + 30  # trailing 30 delay plus enough time to fill up library
+THRESHOLD = 0.2  # the threshold percentage to call a region an atrocity
+TREES_BEFORE_TEST = 2  # how many trees to train before testing begins
 #config_v = [220260, 233, 0.0009, 0.01]
 #threshold = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 100]
 #thre_ratio = [0.6, 0.75, 0.7, 0.65, 0.75, 0.8, 0.75, 0.7]
@@ -328,8 +330,11 @@ class Receiver():
         self.test_start = test_start
         self.end = end
         self.score = 0
-        # this makes sure there are at least two trees before beginning and START_DT of data
-        self.start_dt = max(START_DT, self.test_start - self.start - (2*INTERVAL))
+        # this makes sure there are at least TREES_BEFORE_TEST trees before beginning testing or
+        # if training is small period make sure we have filled up the data buffers first
+        self.start_dt = max(START_DT, self.test_start - self.start - (TREES_BEFORE_TEST*INTERVAL))
+        self.confusion = [[0, 0], [0, 0]]
+        self.threshold = THRESHOLD
 
     def receive_data(self, source_type, day, data):
         """
@@ -371,14 +376,29 @@ class Receiver():
             else:
                 wgh = math.tanh((day - last + 10) / 180)
             atroc_occurs = False
+            true_class = 0
+            prediction = 0
+            if result[reg] > self.threshold:
+                prediction = 1
             for fDay in range(day+1, day+31):
                 if (reg, fDay) in all_atroc:
                     atroc_occurs = True
+                    true_class = 1
                     break
+            self.confusion[prediction][true_class] += 1
             if atroc_occurs:
-                self.score += wgh*(result[reg] - (result[reg]*result[reg]/2))
+                self.score += wgh * (result[reg] - (result[reg] * result[reg] / 2))
             else:
                 self.score -= wgh * result[reg] * result[reg] / 2
+
+    def print_confusion(self):
+        for i in range(len(self.confusion)):
+            print("%4d" % i, end="")
+        for i in range(len(self.confusion)):
+            print("\n", i, end=" ")
+            for j in range(len(self.confusion[0])):
+                print("%4d" % self.confusion[i][j], end="")
+        print()
 
     def predict_atrocities(self, day, all_atroc):
         day -= self.start
