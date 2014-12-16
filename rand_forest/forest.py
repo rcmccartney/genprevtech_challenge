@@ -126,8 +126,6 @@ class Forest(object):
         :param numclass: number of classes in this dataset
         :return: None
         """
-        print("set_train_delete")
-        print("instances_y: ", len(instances), "instances_x", len(instances[0]))
         self.numclasses = numclass
         newinstances = []
         for row_id in range(len(instances)):
@@ -141,7 +139,6 @@ class Forest(object):
                 newinstances.append(instances[row_id][:])
                 newinstances[row_id].append(classvec)
         self.data = newinstances
-        print("newinstances: ", newinstances[0][-1])
         self.add_tree(iterations=self.default_tree_count)
         self.data = None
 
@@ -152,7 +149,7 @@ class Forest(object):
         :param iterations: number of trees to make, -1 means use default setting
         :return: None
         """
-        print("add tree: ", iterations)
+        print("Adding trees:", iterations)
         if iterations == -1:
             iterations = self.default_tree_count
         #########################

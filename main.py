@@ -4,11 +4,17 @@ import sys
 import os
 import errno
 from DataBuffer import *
+from profilehooks17.profilehooks import *
+#Uses:
+#@profile
+#@coverage
+#@timecall
 
 MIN_DAY = 5440
 MIN_REC_DAY = 11284
 MAX_REC_DAY = 17644
 MAX_DAY = 17858
+PRINTING = True
 
 
 def read_data(file_name):
@@ -36,6 +42,7 @@ def parse(events, start):
     return all_atroc
 
 
+@profile
 def main():
     if len(sys.argv) != 6:
         print("This program is to be executed as follows: python main.py <input folder> "
@@ -99,10 +106,11 @@ def main():
         if cur_day >= start_test:
             print("Starting testing")
             results = receiver.predict_atrocities(cur_day, all_atroc)
-            f = open(out_folder + os.sep + "res_" + str(cur_day) + ".txt", 'w')
-            for i in range(len(results)):
-                f.write(str(i) + ": " + str(results[i]) + "\n")
-            f.close()
+            if PRINTING:
+                f = open(out_folder + os.sep + "res_" + str(cur_day) + ".txt", 'w')
+                for i in range(len(results)):
+                    f.write(str(i) + ": " + str(results[i]) + "\n")
+                f.close()
 
     print("#############################")
     print("Final score", receiver.score)

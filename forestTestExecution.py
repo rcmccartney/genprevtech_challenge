@@ -3,14 +3,8 @@ __author__ = 'Rob McCartney'
 from rand_forest.EntropyFn import *
 from rand_forest.forest import *
 import sys
-from profilehooks17.profilehooks import *
-#Uses:
-#@profile
-#@coverage
-#@timecall
 
 
-@timecall
 def train_dt(datafile, numtrees, depth_limit, learner):
 
     forest = Forest(depth_limit, filename=datafile, weak_learner=learner)

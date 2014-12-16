@@ -2,13 +2,8 @@ __author__ = 'Robert McCartney'
 
 from rand_forest.forest import Forest
 from rand_forest.AtrocityEntropyFn import *
-from profilehooks17.profilehooks import *
-#Uses:
-#@profile
-#@coverage
-#@timecall
 
-# how many features are in 1 line of data
+# how many features are in 1 line of data, if you add features later this must change
 VECTOR_LENGTH = 70
 
 
@@ -17,6 +12,8 @@ class Library():
     def __init__(self, start_dt, regions, countries, periods, lib_days, interval, depth, k, attr, bag, bag_rat, trees):
         """
         The Library class is responsible for creating the data that actual goes into the classifier
+        The amount of data kept at any given time is LIB_DAYS for every region, so there is no need to
+        start building the library to train with until you are LIB_DAYS out from the first training day
         :param start_dt: int first day of training a forest
         :param regions: int number of regions
         :param countries: int number of countries
@@ -166,7 +163,6 @@ class Library():
                 temp.append(1.0)
         return temp
 
-    @profile
     def add_forest(self, day):
         """
         Add a forest to the model
@@ -175,7 +171,7 @@ class Library():
         """
         forest = Forest(depthlimit=self.depth, weak_learner=AtrocityEntropyFn(self.k, self.attr),
                         bagging=self.bag, bag_ratio=self.bag_rat, default_tree_count=self.trees)
-        print("In add_forest")
+        print("Adding new forest")
         forest.set_train_delete(self.train_data, self.classf, 2)
         self.forests.append(forest)
         print("Finished forest on day", day)

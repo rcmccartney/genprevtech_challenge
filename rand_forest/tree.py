@@ -47,7 +47,6 @@ class Tree(object):
         :param weak_learner: weak learner to use for splitting data
         :return: None
         """
-        print("Tree constructor")
         # data is not stored at the tree, so after the constructor finishes it is tossed
         self.depth_limit = depth_limit
         self.weak_learner = weak_learner

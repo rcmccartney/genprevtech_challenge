@@ -15,7 +15,7 @@ INTERVAL = 10  # how often we make a new forest
 LIB_DAYS = 60  # how many days of data we use for training a forest
 BAG = True  # use bagging on the samples when making the tree?
 BAG_RAT = .3  # how much of the data is bagged to make a forest
-TREES = 4  # how many treees in a forest
+TREES = 4  # how many trees in a forest
 DEPTH = 3  # depth of each tree in the forest
 K = 10  # random number of splits to use
 # Attr is the number of random attributes to use for the K split
@@ -41,22 +41,21 @@ System		11284-16397 (76,824,701 lines)			16398-17644 (92,738,537 lines)
 
 
 class DataBuffer():
-    def __init__(self, library, start, end):
+    def __init__(self, library, buffsize, totsize, start_lib):
         """
         Initialize the buffer that reads the data files and stores aggregate counts of various metrics
         :param library: creates the dataset to be used in training/testing the forest
         :return: None
         """
-        # different time periods to make features from
-        size = end - start + 1
         self.forest_library = library
         # store enough to look back that far with 30 days trailing
-        self.buffsize = min(EVENT_AGGR_TIME + 31, size)
+        self.buffsize = buffsize
+        self.start_lib = start_lib
         self.cnt_atroc_dates = {}  # stores days of atrocities for this country
         self.reg_atroc_dates = {}  # stores days of atrocities for this region
         # stores a count of atrocities for all [countries][days] and [regions][days]
-        self.all_cnt_atro = [[0 for _ in range(size)] for _ in range(COUNTRIES)]
-        self.all_region_atro = [[0 for _ in range(size)] for _ in range(REGIONS)]
+        self.all_cnt_atro = [[0 for _ in range(totsize)] for _ in range(COUNTRIES)]
+        self.all_region_atro = [[0 for _ in range(totsize)] for _ in range(REGIONS)]
         #this counts the last month of atrocities in region, gives us the class decision
         self.region_atro_decision = [0 for _ in range(REGIONS)]
         # map for both the current time and 30 days prior for the counts of atrocities during different windows
@@ -120,7 +119,7 @@ class DataBuffer():
                 self.rolling_add(self.trailing30_country_atroc[WORLD_INDEX], pid, self.all_cnt_atro[country],
                                  day, period, trailing=30)
         #now we can create labeled data thanks to known atrocities, so call the create function
-        if day >= 30:  # need at least 30 days for trailing data to be started
+        if day >= self.start_lib:  # need at least 30 days for trailing data to be started
             self.forest_library.create_data(self, day)
 
     @staticmethod
@@ -330,9 +329,20 @@ class Receiver():
         self.test_start = test_start
         self.end = end
         self.score = 0
+        self.totsize = end - start + 1
         # this makes sure there are at least TREES_BEFORE_TEST trees before beginning testing or
         # if training is small period make sure we have filled up the data buffers first
         self.start_dt = max(START_DT, self.test_start - self.start - (TREES_BEFORE_TEST*INTERVAL))
+        # this is the buffer size for news events, which will hold the aggregation period plus trailing 30
+        # or will hold the entire period if you are running for less than the aggregation time
+        self.buffsize = min(EVENT_AGGR_TIME + 31, self.totsize)
+        # if you are farther away from the start of training of a tree than the size of the training data,
+        # move on.  No need to craete the data until you are LIB_DAYS out from the first tree.  At a minimum
+        # need 30 days to get 30 days of trailing data
+        self.start_library = max(30, self.start_dt - LIB_DAYS)
+        # the news buffer is used to create the library training data. So no need to start collecting this until
+        # you are buffsize away from creating the first data
+        self.start_news = max(0, self.start_library - self.buffsize)
         self.confusion = [[0, 0], [0, 0]]
         self.threshold = THRESHOLD
 
@@ -350,11 +360,13 @@ class Receiver():
         if source_type == 0:  # this is atrocity data
             self.buf.read_atrocities(day - self.start, data)
         elif source_type == 1:
-            self.buf.read_news_data(day - self.start, data)
+            day = day - self.start
+            if day >= self.start_news:
+                self.buf.read_news_data(day, data)
         elif source_type == 2:  # this source will be called before the other two
             self.library = Library(self.start_dt, REGIONS, COUNTRIES, PERIODS, LIB_DAYS, INTERVAL, DEPTH, K,
                                    ATTR, BAG, BAG_RAT, TREES)
-            self.buf = DataBuffer(self.library, self.start, self.end)
+            self.buf = DataBuffer(self.library, self.buffsize, self.totsize, self.start_library)
             self.buf.read_geography(data)
         else:
             raise Exception("unknown data type " + str(source_type))
@@ -375,29 +387,29 @@ class Receiver():
                 wgh = 1
             else:
                 wgh = math.tanh((day - last + 10) / 180)
-            atroc_occurs = False
+            atrocity_occurs = False
             true_class = 0
             prediction = 0
             if result[reg] > self.threshold:
                 prediction = 1
             for fDay in range(day+1, day+31):
                 if (reg, fDay) in all_atroc:
-                    atroc_occurs = True
+                    atrocity_occurs = True
                     true_class = 1
                     break
-            self.confusion[prediction][true_class] += 1
-            if atroc_occurs:
+            self.confusion[true_class][prediction] += 1
+            if atrocity_occurs:
                 self.score += wgh * (result[reg] - (result[reg] * result[reg] / 2))
             else:
                 self.score -= wgh * result[reg] * result[reg] / 2
 
     def print_confusion(self):
         for i in range(len(self.confusion)):
-            print("%4d" % i, end="")
+            print("%9d" % i, end=" ")
         for i in range(len(self.confusion)):
             print("\n", i, end=" ")
             for j in range(len(self.confusion[0])):
-                print("%4d" % self.confusion[i][j], end="")
+                print("%9d" % self.confusion[i][j], end=" ")
         print()
 
     def predict_atrocities(self, day, all_atroc):
@@ -422,6 +434,7 @@ class Receiver():
                 result[reg] = tot[1] / len(self.library.forests)
                 result[reg] = max(result[reg], 0.0)  # must be > 0
                 result[reg] = min(result[reg], 1.0)  # must be < 1
-                print("Region: ", reg, "prediction: ", result[reg])
+                if result[reg] > self.threshold:
+                    print("Possible atrocity in region", reg, ": prediction", "{0:.2f}".format(result[reg]))
             self.calc_score(result, day, all_atroc)
         return result
