@@ -42,14 +42,27 @@ Confusion matrix with threshold 0.2
  0   4556952      6288
  1     10077      4420
 #############################
-From the confusion matrix (with 1 meaning an atrocity did in fact occur sometime 
+
+Using a lower threshold, the following results were achieved:
+#############################
+Final score 1316.3656965067314
+Confusion matrix with threshold 0.1
+        0         1 
+ 0   4546627     16613 
+ 1      7793      6704 
+#############################
+
+From the first confusion matrix (with 1 meaning an atrocity did in fact occur sometime 
 in the following 30 days from the date of the prediction) you can see that we correctly 
-identified over 4,000 atrocities ahead of when they occurred.  Further tests are 
-currently being performed to increase the accuracy on this sparse class problem
-even further (to push more of the false negatives into positive classification).
+identified over 4,000 atrocities ahead of when they occurred, but had a good number
+of false negatives (~10,000). This is due to the difficulty of classifying unbalanced 
+classes.  While the second run did in fact result in fewer false negatives, it greatly 
+increased the number of false positives. Further tests are currently being performed to 
+increase the accuracy on this sparse class problem even further.
 
 Note that the program outputs files for every day of testing with an estimate of the 
-likelihood of an atrocity in every region of the globe within the next 30 days.  
+likelihood of an atrocity in every region of the globe within the next 30 days. My 
+results can be found in results/System and results/Provisional.
 
 Usage: python3 main.py </data_path/> </output_directory/> <start_training_day> <start_testing> <end_testing>
 
