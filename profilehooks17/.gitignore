@@ -1,7 +1,0 @@
-.tox
-*.egg-info
-dist
-tmp
-*.py[co]
-__pycache__/
-.coverage

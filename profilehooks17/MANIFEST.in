@@ -1,8 +1,0 @@
-include *.rst
-include .gitignore
-include MANIFEST.in
-include Makefile
-include test*.py
-include tox.ini
-include .travis.yml
-include .coveragerc
