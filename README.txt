@@ -35,7 +35,13 @@ and split points for those attributes, and then for all of those possible split 
 used entropy calculations it selected the best feature.  This became the split point 
 of that node in the tree, with a tree containing up to three levels of splitting.
 The model builds several different trees on each iteration and new forests are built 
-every pre-defined number of days (my scores rebuilt forests every 10 days).  
+every pre-defined number of days (my scores rebuilt forests every 10 days).  The
+details of a random forest can be found in this paper (a really great overview):
+
+Antonio Criminisi, Jamie Shotton, and Ender Konukoglu. 2012. Decision Forests: A 
+Unified Framework for Classification, Regression, Density Estimation, Manifold 
+Learning and Semi-Supervised Learning. Found. Trends. Comput. Graph. Vis. 7, 2–3 
+(February 2012), 81-227. DOI=10.1561/0600000035 http://dx.doi.org/10.1561/0600000035
 
 Here are my results on the system test, which surpassed the winner of the challenge:
 #############################
