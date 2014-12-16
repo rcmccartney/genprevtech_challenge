@@ -1,3 +1,6 @@
+NOTE: Code has been removed pending the publishing of results in a paper, at 
+which point it will be re-uploaded.
+
 Usage: python3 main.py </data_path/> </output_directory/> <start_training_day> <start_testing> <end_testing>
 
 This project is in reference to the top coder challenge located here: 
@@ -25,23 +28,6 @@ https://github.com/nasa/CoECI-USAID-Atrocity-Prevention-Model
 The winner won the contest with a score of 213.66 on the provisional and 376.79 
 on the system tests, with those tests and the scoring function described in the 
 topcoder link above.  
-
-My own implementation uses a random forest developed in Python.  I reused a lot 
-of the features that the winner of the contest used, but where he (magically) 
-assigned weights to get rid of certain features and promote other features I 
-allowed the random forest to perform implicit feature selection. It did this by first 
-randomly bagging the data, then randomly choosing a certain number of attributes 
-and split points for those attributes, and then for all of those possible split points
-used entropy calculations it selected the best feature.  This became the split point 
-of that node in the tree, with a tree containing up to three levels of splitting.
-The model builds several different trees on each iteration and new forests are built 
-every pre-defined number of days (my scores rebuilt forests every 10 days).  The
-details of a random forest can be found in this paper (a really great overview):
-
-Antonio Criminisi, Jamie Shotton, and Ender Konukoglu. 2012. Decision Forests: A 
-Unified Framework for Classification, Regression, Density Estimation, Manifold 
-Learning and Semi-Supervised Learning. Found. Trends. Comput. Graph. Vis. 7, 2–3 
-(February 2012), 81-227. DOI=10.1561/0600000035 http://dx.doi.org/10.1561/0600000035
 
 Here are my results on the system test, which surpassed the winner of the challenge:
 #############################
