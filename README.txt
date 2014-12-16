@@ -1,3 +1,5 @@
+Usage: python3 main.py </data_path/> </output_directory/> <start_training_day> <start_testing> <end_testing>
+
 This project is in reference to the top coder challenge located here: 
 http://community.topcoder.com/longcontest/?module=ViewProblemStatement&rd=15761&pm=12634
 put on by NASA's Center of Excellence for Collaborative Innovation and Harvard Business 
@@ -24,15 +26,16 @@ The winner won the contest with a score of 213.66 on the provisional and 376.79
 on the system tests, with those tests and the scoring function described in the 
 topcoder link above.  
 
-My own implementation uses a random forest developed in Python.  I resued a lot 
+My own implementation uses a random forest developed in Python.  I reused a lot 
 of the features that the winner of the contest used, but where he (magically) 
 assigned weights to get rid of certain features and promote other features I 
-allowed the random forest to perform feeature selection. It did this by first 
+allowed the random forest to perform implicit feature selection. It did this by first 
 randomly bagging the data, then randomly choosing a certain number of attributes 
 and split points for those attributes, and then for all of those possible split points
-used entropy calculations to select the best feature.  This became the split point 
-of that node in the tree, with many different trees built on each iteration and 
-new forests built every pre-defined number of days (my scores rebuilt forests every 5 days).  
+used entropy calculations it selected the best feature.  This became the split point 
+of that node in the tree, with a tree containing up to three levels of splitting.
+The model builds several different trees on each iteration and new forests are built 
+every pre-defined number of days (my scores rebuilt forests every 10 days).  
 
 Here are my results on the system test, which surpassed the winner of the challenge:
 #############################
@@ -60,9 +63,17 @@ classes.  While the second run did in fact result in fewer false negatives, it g
 increased the number of false positives. Further tests are currently being performed to 
 increase the accuracy on this sparse class problem even further.
 
+This same program works for any input timeframes, not just the ones in the topcoder 
+challenge.  For instance, over the time period of 14800 start training, 15000 start 
+testing, and 16000 end testing we have the following results:
+#############################
+Final score 1112.008565434813
+Confusion matrix with threshold 0.2
+        0         1 
+ 0   3657777      6885 
+ 1      5666      4343 
+#############################
+
 Note that the program outputs files for every day of testing with an estimate of the 
 likelihood of an atrocity in every region of the globe within the next 30 days. My 
 results can be found in results/System and results/Provisional.
-
-Usage: python3 main.py </data_path/> </output_directory/> <start_training_day> <start_testing> <end_testing>
-
